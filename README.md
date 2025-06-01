@@ -2,11 +2,13 @@
 random sports stuff
 
 ## developing
+install [uv](https://github.com/astral-sh/uv)
+
 ```
 # setup a virtual environment...this is one way
-$ pip install -m venv env
+$ python3 -m venv env
 $ source env/bin/activate
-(env) $ pip install -r requirements.txt
+(env) $ uv install
 ```
 
 ## credit
