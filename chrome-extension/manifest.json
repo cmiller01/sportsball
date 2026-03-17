@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "GameChanger Pitch Count Extractor",
+  "version": "1.0.0",
+  "description": "Extracts pitcher and catcher stats from GameChanger for youth baseball league reporting",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://*.gc.com/*",
+    "https://*.gamechanger.io/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.gc.com/*",
+        "https://*.gamechanger.io/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Pitch Count Extractor"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["gc-interceptor.js"],
+      "matches": [
+        "https://*.gc.com/*",
+        "https://*.gamechanger.io/*"
+      ]
+    }
+  ]
+}
