@@ -162,3 +162,4 @@ cython_debug/
 
 # blobs from gamechanger
 *.json
+\!chrome-extension/manifest.json
