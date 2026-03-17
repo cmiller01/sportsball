@@ -33,6 +33,18 @@
       border: none;
       max-width: 200px;
     }
+    #btn-popout {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,.4);
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+      flex: none;
+      white-space: nowrap;
+    }
+    #btn-popout:hover { background: rgba(255,255,255,.15); }
 
     #no-data {
       padding: 24px;
@@ -108,6 +120,24 @@
     .team-a { background: #dbeafe; color: #1e40af; }
     .team-b { background: #dcfce7; color: #166534; }
 
+    .age-select {
+      font-size: 10px;
+      padding: 1px 3px;
+      border-radius: 3px;
+      border: 1px solid #ccc;
+      color: #555;
+      margin-left: 5px;
+      vertical-align: middle;
+      background: #f9f9f9;
+      cursor: pointer;
+    }
+    .conflict-warn {
+      color: #dc2626;
+      margin-left: 4px;
+      font-size: 11px;
+      cursor: help;
+    }
+
     .pitch-count { font-weight: 700; font-size: 14px; }
     .warn { color: #b45309; }
     .danger { color: #dc2626; }
@@ -147,6 +177,7 @@
   <header>
     <h1>⚾ Pitch Count Extractor</h1>
     <select id="game-select" title="Select game"></select>
+    <button id="btn-popout" title="Open in a tab so it stays open">↗ Pop out</button>
   </header>
 
   <div id="no-data">
@@ -169,6 +200,7 @@
             <th>Player</th>
             <th title="Number of innings (half-innings) pitched in">Inn.</th>
             <th title="Total pitches thrown">Pitches</th>
+            <th title="Days of rest required after this game">Rest</th>
             <th title="Running pitch count at the start of their last at-bat">Start of Last AB</th>
           </tr>
         </thead>

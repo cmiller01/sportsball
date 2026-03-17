@@ -1,6 +1,52 @@
 let currentGame = null;
 let allGames = [];
 
+// --- Pitch count limits and league age ---
+const PITCH_LIMITS = {
+  '7-8':   { label: '7-8',            max: 50, warnAt: 21, dangerAt: 36,
+              rest: [[1,20,0],[21,35,1],[36,50,2]] },
+  '9-10':  { label: '9-10 (Mustang)', max: 60, warnAt: 36, dangerAt: 51,
+              rest: [[1,20,0],[21,35,1],[36,50,2],[51,60,3]] },
+  '11-12': { label: '11-12 (Bronco)', max: 80, warnAt: 51, dangerAt: 66,
+              rest: [[1,20,0],[21,35,1],[36,50,2],[51,65,3],[66,80,4]] },
+};
+
+// In-memory per-player league age overrides, keyed by `${gameKey}_${playerId}`
+const leagueAgeState = {};
+
+function defaultLeagueAge(game) {
+  const text = `${game.homeTeamName ?? ''} ${game.awayTeamName ?? ''} ${game.label ?? ''}`.toLowerCase();
+  if (text.includes('mustang')) return '9-10';
+  return '11-12';
+}
+
+function getLeagueAge(game, playerId) {
+  return leagueAgeState[`${game.gameKey}_${playerId}`] ?? defaultLeagueAge(game);
+}
+
+function setLeagueAge(game, playerId, age) {
+  leagueAgeState[`${game.gameKey}_${playerId}`] = age;
+}
+
+function getRestDays(count, leagueAge) {
+  if (count <= 0) return 0;
+  const limits = PITCH_LIMITS[leagueAge];
+  if (!limits) return 0;
+  for (const [min, max, days] of limits.rest) {
+    if (count >= min && count <= max) return days;
+  }
+  return null; // over daily max
+}
+
+// Returns a conflict warning string (or null) for a player who both pitched and caught.
+function catcherPitcherConflict(pitches, caught) {
+  if (pitches >= 41 && caught > 0)
+    return `Threw ${pitches} pitches (≥41) — ineligible to catch (rule 9.5.2)`;
+  if (caught > 3 && pitches > 0)
+    return `Caught ${caught} inn (>3) — ineligible to pitch (rule 9.5.3)`;
+  return null;
+}
+
 // --- Team helpers ---
 function teamName(teamId, game) {
   if (teamId === game.homeTeamId) return game.homeTeamName ?? 'Home';
@@ -24,10 +70,11 @@ function sortHomeFirst(arr, game) {
   });
 }
 
-// --- Pitch count colour coding (Little League thresholds) ---
-function pitchClass(count) {
-  if (count >= 66) return 'danger';
-  if (count >= 51) return 'warn';
+// --- Pitch count colour coding (thresholds depend on league age) ---
+function pitchClass(count, leagueAge) {
+  const limits = PITCH_LIMITS[leagueAge] ?? PITCH_LIMITS['11-12'];
+  if (count >= limits.dangerAt) return 'danger';
+  if (count >= limits.warnAt)   return 'warn';
   return '';
 }
 
@@ -51,22 +98,43 @@ function render(game) {
   document.getElementById('boxscore-note').style.display = missingBoxscore ? '' : 'none';
 
   // Pitchers — home team first, then away
-  const sortedPitchers = sortHomeFirst(pitchers, game);
+  const pitcherMapById  = Object.fromEntries(pitchers.map(p => [p.id, p]));
+  const catcherMapById  = Object.fromEntries(catchers.map(c => [c.id, c]));
+  const sortedPitchers  = sortHomeFirst(pitchers, game);
   const pitcherBody = document.getElementById('pitcher-rows');
   pitcherBody.innerHTML = sortedPitchers.map(p => {
-    const cls = pitchClass(p.pitchCount);
+    const age  = getLeagueAge(game, p.id);
+    const cls  = pitchClass(p.pitchCount, age);
     const pitchDisplay = p.hasBoxscoreData ? p.pitchCount : `${p.pitchCount}*`;
+    const restDays  = getRestDays(p.lastAtBatStartPitchCount, age);
+    const restLabel = restDays === null ? 'MAX' : restDays === 0 ? '—' : `${restDays}d`;
+    const catcher   = catcherMapById[p.id];
+    const conflict  = catcher ? catcherPitcherConflict(p.pitchCount, catcher.inningsCaught) : null;
     return `<tr>
       <td>
         <span class="player-name">${p.name}</span>
         <span class="player-num">#${p.number}</span>
         ${teamBadge(p.teamId, game)}
+        <select class="age-select" data-player-id="${p.id}" title="League age">
+          <option value="7-8"${age === '7-8' ? ' selected' : ''}>7-8</option>
+          <option value="9-10"${age === '9-10' ? ' selected' : ''}>9-10</option>
+          <option value="11-12"${age === '11-12' ? ' selected' : ''}>11-12</option>
+        </select>
+        ${conflict ? `<span class="conflict-warn" title="${conflict}">⚠</span>` : ''}
       </td>
       <td>${p.inningsPitched}</td>
       <td class="pitch-count ${cls}">${pitchDisplay}</td>
+      <td class="${cls}">${restLabel}</td>
       <td>${p.lastAtBatStartPitchCount}</td>
     </tr>`;
   }).join('');
+
+  pitcherBody.querySelectorAll('.age-select').forEach(sel => {
+    sel.addEventListener('change', e => {
+      setLeagueAge(currentGame, e.target.dataset.playerId, e.target.value);
+      render(currentGame);
+    });
+  });
 
   document.getElementById('catcher-subtitle').textContent =
     catchers.length > 0
@@ -84,11 +152,14 @@ function render(game) {
       const posDisplay = c.positions.length
         ? c.positions.map(p => p === 'C' ? `<strong>${p}</strong>` : p).join(', ')
         : '—';
+      const pitcher  = pitcherMapById[c.id];
+      const conflict = pitcher ? catcherPitcherConflict(pitcher.pitchCount, c.inningsCaught) : null;
       return `<tr>
         <td>
           <span class="player-name">${c.name}</span>
           <span class="player-num">#${c.number}</span>
           ${teamBadge(c.teamId, game)}
+          ${conflict ? `<span class="conflict-warn" title="${conflict}">⚠</span>` : ''}
         </td>
         <td style="font-size:11px;color:#555">${posDisplay}</td>
         <td>${innings}</td>
@@ -100,14 +171,17 @@ function render(game) {
 // --- Exports ---
 function buildCsv(game) {
   const { pitchers, catchers } = game.result;
-  const lines = ['Type,Name,Number,Team,IP,Pitches,Start of Last AB,Positions,Innings Caught'];
+  const lines = ['Type,Name,Number,Team,LeagueAge,IP,Pitches,Rest Days,Start of Last AB,Positions,Innings Caught'];
 
   for (const p of sortHomeFirst(pitchers, game)) {
-    lines.push(`Pitcher,${p.name},${p.number},${teamName(p.teamId, game)},${p.inningsPitched},${p.pitchCount},${p.lastAtBatStartPitchCount},,`);
+    const age = getLeagueAge(game, p.id);
+    const restDays = getRestDays(p.lastAtBatStartPitchCount, age);
+    const restLabel = restDays === null ? 'MAX' : String(restDays);
+    lines.push(`Pitcher,${p.name},${p.number},${teamName(p.teamId, game)},${age},${p.inningsPitched},${p.pitchCount},${restLabel},${p.lastAtBatStartPitchCount},,`);
   }
   for (const c of sortHomeFirst(catchers, game)) {
     const innings = c.isEstimate ? `${c.inningsCaught}*` : String(c.inningsCaught);
-    lines.push(`Catcher,${c.name},${c.number},${teamName(c.teamId, game)},,,,"${c.positions.join(', ')}",${innings}`);
+    lines.push(`Catcher,${c.name},${c.number},${teamName(c.teamId, game)},,,,,"${c.positions.join(', ')}",${innings}`);
   }
   return lines.join('\n');
 }
@@ -115,11 +189,14 @@ function buildCsv(game) {
 function buildText(game) {
   const { pitchers, catchers } = game.result;
   const lines = [game.label ?? '', 'PITCHERS', '---'];
-  lines.push(`${'Name'.padEnd(28)} ${'IP'.padStart(4)} ${'Pitches'.padStart(7)} ${'Last AB'.padStart(7)}`);
+  lines.push(`${'Name'.padEnd(28)} ${'Age'.padStart(5)} ${'IP'.padStart(4)} ${'Pitches'.padStart(7)} ${'Rest'.padStart(5)} ${'Last AB'.padStart(7)}`);
 
   for (const p of sortHomeFirst(pitchers, game)) {
+    const age = getLeagueAge(game, p.id);
+    const restDays = getRestDays(p.lastAtBatStartPitchCount, age);
+    const restLabel = restDays === null ? 'MAX' : `${restDays}d`;
     lines.push(
-      `${(p.name + ' #' + p.number).padEnd(28)} ${String(p.inningsPitched).padStart(4)} ${String(p.pitchCount).padStart(7)} ${String(p.lastAtBatStartPitchCount).padStart(7)}  ${teamName(p.teamId, game)}`
+      `${(p.name + ' #' + p.number).padEnd(28)} ${age.padStart(5)} ${String(p.inningsPitched).padStart(4)} ${String(p.pitchCount).padStart(7)} ${restLabel.padStart(5)} ${String(p.lastAtBatStartPitchCount).padStart(7)}  ${teamName(p.teamId, game)}`
     );
   }
 
@@ -189,6 +266,10 @@ document.getElementById('btn-copy-text').addEventListener('click', () => {
     btn.textContent = 'Copied!';
     setTimeout(() => { btn.textContent = 'Copy Text'; }, 1500);
   });
+});
+
+document.getElementById('btn-popout').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
 });
 
 document.getElementById('btn-clear').addEventListener('click', () => {
