@@ -209,6 +209,9 @@ function parseGameData(playsData, boxscoreData = null) {
     if (inningHalf !== prevInningHalf) {
       prevOuts = 0;
       prevInningHalf = inningHalf;
+      // Reset so a new inning isn't credited to the previous inning's pitcher
+      // just because the first play's details don't mention the pitcher name.
+      halfPitcher[play.half] = null;
     }
 
     const detectedPitcher = detectPitcher(play);
