@@ -23,4 +23,4 @@ Pitch counts are color-coded using Little League thresholds. Data can be exporte
 1. Navigate to any game page on `gc.com` or `gamechanger.io`
 2. Browse to the play-by-play and boxscore tabs so the extension can capture the data
 3. Click the extension icon to view pitcher and catcher stats
-4. Use **Copy CSV** or **Copy Text** to export for reporting
+4. Use **Copy Text** to export for reporting

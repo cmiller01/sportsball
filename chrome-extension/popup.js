@@ -169,23 +169,6 @@ function render(game) {
 }
 
 // --- Exports ---
-function buildCsv(game) {
-  const { pitchers, catchers } = game.result;
-  const lines = ['Type,Name,Number,Team,LeagueAge,IP,Pitches,Rest Days,Start of Last AB,Positions,Innings Caught'];
-
-  for (const p of sortHomeFirst(pitchers, game)) {
-    const age = getLeagueAge(game, p.id);
-    const restDays = getRestDays(p.lastAtBatStartPitchCount, age);
-    const restLabel = restDays === null ? 'MAX' : String(restDays);
-    lines.push(`Pitcher,${p.name},${p.number},${teamName(p.teamId, game)},${age},${p.inningsPitched},${p.pitchCount},${restLabel},${p.lastAtBatStartPitchCount},,`);
-  }
-  for (const c of sortHomeFirst(catchers, game)) {
-    const innings = c.isEstimate ? `${c.inningsCaught}*` : String(c.inningsCaught);
-    lines.push(`Catcher,${c.name},${c.number},${teamName(c.teamId, game)},,,,,"${c.positions.join(', ')}",${innings}`);
-  }
-  return lines.join('\n');
-}
-
 function buildText(game) {
   const { pitchers, catchers } = game.result;
   const lines = [game.label ?? '', 'PITCHERS', '---'];
@@ -248,15 +231,6 @@ chrome.storage.local.get(['gcGames'], (stored) => {
 document.getElementById('game-select').addEventListener('change', (e) => {
   const game = allGames.find(g => (g.gameKey ?? g.id) === e.target.value);
   if (game) { currentGame = game; render(game); }
-});
-
-document.getElementById('btn-copy-csv').addEventListener('click', () => {
-  if (!currentGame) return;
-  copyText(buildCsv(currentGame)).then(() => {
-    const btn = document.getElementById('btn-copy-csv');
-    btn.textContent = 'Copied!';
-    setTimeout(() => { btn.textContent = 'Copy CSV'; }, 1500);
-  });
 });
 
 document.getElementById('btn-copy-text').addEventListener('click', () => {
