@@ -63,16 +63,10 @@ function processGame(gameKey, timestamp) {
     awayTeamId = result.teamIds[1];
   }
 
-  // Resolve team names from captured metadata, fall back to player last names
-  const fallbackName = (teamId) => {
-    const p = Object.values(result.players).find(pl => pl.teamId === teamId);
-    return p ? p.last_name.split(' ')[0] : (teamId ?? '?').slice(0, 8);
-  };
-
   const homeTeamName = (homeTeamId === urlTeamId ? slot.teamName : slot.opponentName)
-    ?? fallbackName(homeTeamId);
+    ?? "Home Team";
   const awayTeamName = (awayTeamId === urlTeamId ? slot.teamName : slot.opponentName)
-    ?? fallbackName(awayTeamId);
+    ?? "Away Team";
 
   const dateLabel = slot.startTs
     ? formatGameDate(slot.startTs, slot.timezone)
