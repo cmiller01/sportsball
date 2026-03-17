@@ -161,5 +161,4 @@ cython_debug/
 
 
 # blobs from gamechanger
-boxscore.json
-plays.json
+*.json
